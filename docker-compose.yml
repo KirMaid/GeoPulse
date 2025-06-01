@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    image: api-gateway
+    ports:
+      - "8080:8080"
+
+  osm-service:
+    image: osm-service
+    environment:
+      OVERPASS_URL: "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+      ML_SERVICE_URL: "http://ml-service:5000"
+
+  ml-service:
+    image: ml-service
+    volumes:
+      - ./models:/app/models
+
+  postgis:
+    image: postgis/postgis:14-3.3
