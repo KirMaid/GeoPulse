@@ -1,21 +1,51 @@
 version: '3.8'
 
 services:
-  api-gateway:
-    image: api-gateway
+  go-service:
+    build: ./go_service
+    environment:
+      POSTGRES_URL: "postgresql://user:pass@postgres/osm?sslmode=disable"
+      OVERPASS_URL: "http://overpass-api:8080/api/interpreter"
+      ML_SERVICE_URL: "http://ml-service:5000/predict"
+      SAVE_TRAINING_DATA: "true"
     ports:
       - "8080:8080"
-
-  osm-service:
-    image: osm-service
-    environment:
-      OVERPASS_URL: "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-      ML_SERVICE_URL: "http://ml-service:5000"
+    depends_on:
+      - postgres
+      - ml-service
 
   ml-service:
-    image: ml-service
+    build: ./ml_service
+    environment:
+      DB_URL: "postgresql://user:pass@postgres/osm"
     volumes:
-      - ./models:/app/models
+      - ./ml_models:/app/models
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
 
-  postgis:
-    image: postgis/postgis:14-3.3
+  model-trainer:
+    build: ./ml_service
+    command: python train_models.py
+    environment:
+      DB_URL: "postgresql://user:pass@postgres/osm"
+    volumes:
+      - ./ml_models:/app/models
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: osm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
+  ml_models:

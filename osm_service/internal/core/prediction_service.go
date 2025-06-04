@@ -12,17 +12,23 @@ type PredictionService struct {
 	overpassRepo repository.OverpassRepository
 	postgisRepo  repository.PostGISRepository
 	mlClient     MLClient
+	recorder   TrainingDataRecorder
+    saveData   bool // Флаг для активации сохранения данных
 }
 
 func NewPredictionService(
 	overpassRepo *repository.OverpassRepository,
 	postgisRepo *repository.PostGISRepository,
 	mlClient MLClient,
+	recorder repository.TrainingDataRecorder,
+	saveData bool,
 ) *PredictionService {
 	return &PredictionService{
-		overpassRepo: *overpassRepo,
-		postgisRepo:  *postgisRepo,
-		mlClient:     mlClient,
+		overpassRepo:  *overpassRepo,
+		postgisRepo:   *postgisRepo,
+		mlClient:      mlClient,
+		trainingRecorder: recorder,
+		saveData:      saveData,
 	}
 }
 
@@ -39,7 +45,12 @@ func (s *PredictionService) Predict(ctx context.Context, req model.PredictionReq
 
 	features := s.calculateFeatures(current, historical, req.Years)
 
-	// Pass historical data and years to ML client
+	if s.saveData {
+		if err := s.trainingRecorder.SaveTrainingData(ctx, features, req.ShopType, req.BBox, 0); err != nil {
+			log.Printf("Failed to save training data: %v", err)
+		}
+	}
+
 	result, err := s.mlClient.Predict(ctx, features, req.ShopType, historical, req.Years)
 	if err != nil {
 		return nil, fmt.Errorf("prediction failed: %w", err)
@@ -98,3 +109,17 @@ func (s *PredictionService) calculateFeatures(
 		Temporal: temporal,
 	}
 }
+
+func (s *PredictionService) calculateFeatures(
+    current []model.OSMElement,
+    historical []model.HistoricalData,
+    years int,
+) model.FeatureSet {
+    return model.FeatureSet{
+        Spatial:  spatial,
+        Temporal: temporal,
+        Elements: current,  // Сохраняем текущие элементы
+    }
+}
+
+
