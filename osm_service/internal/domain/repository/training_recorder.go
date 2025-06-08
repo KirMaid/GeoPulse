@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"osm_service/internal/domain/model"
 
 	"github.com/jmoiron/sqlx"

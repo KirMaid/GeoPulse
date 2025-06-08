@@ -3,32 +3,33 @@ package core
 import (
 	"context"
 	"fmt"
+	"log"
 	"osm_service/internal/domain/model"
 	"osm_service/internal/domain/repository"
 	"time"
 )
 
 type PredictionService struct {
-	overpassRepo repository.OverpassRepository
-	postgisRepo  repository.PostGISRepository
-	mlClient     MLClient
-	recorder   TrainingDataRecorder
-    saveData   bool // Флаг для активации сохранения данных
+	overpassRepo     repository.OverpassRepository
+	postgisRepo      repository.PostGISRepository
+	mlClient         MLClient
+	trainingRecorder repository.TrainingDataRecorder
+	saveData         bool
 }
 
 func NewPredictionService(
-	overpassRepo *repository.OverpassRepository,
-	postgisRepo *repository.PostGISRepository,
+	overpassRepo repository.OverpassRepository,
+	postgisRepo repository.PostGISRepository,
 	mlClient MLClient,
 	recorder repository.TrainingDataRecorder,
 	saveData bool,
 ) *PredictionService {
 	return &PredictionService{
-		overpassRepo:  *overpassRepo,
-		postgisRepo:   *postgisRepo,
-		mlClient:      mlClient,
+		overpassRepo:     overpassRepo,
+		postgisRepo:      postgisRepo,
+		mlClient:         mlClient,
 		trainingRecorder: recorder,
-		saveData:      saveData,
+		saveData:         saveData,
 	}
 }
 
@@ -43,7 +44,7 @@ func (s *PredictionService) Predict(ctx context.Context, req model.PredictionReq
 		return nil, fmt.Errorf("failed to get current data: %w", err)
 	}
 
-	features := s.calculateFeatures(current, historical, req.Years)
+	features := s.calculateFeatures(ctx, current, historical, req.Years)
 
 	if s.saveData {
 		if err := s.trainingRecorder.SaveTrainingData(ctx, features, req.ShopType, req.BBox, 0); err != nil {
@@ -91,6 +92,7 @@ func (s *PredictionService) generatePeriods(start, end time.Time) []string {
 }
 
 func (s *PredictionService) calculateFeatures(
+	ctx context.Context,
 	current []model.OSMElement,
 	historical []model.HistoricalData,
 	years int,
@@ -98,8 +100,15 @@ func (s *PredictionService) calculateFeatures(
 	spatialAnalyzer := SpatialAnalyzer{}
 	temporalAnalyzer := TemporalAnalyzer{}
 
-	subways, _ := s.overpassRepo.GetSubwayData(context.Background())
-	roads, _ := s.overpassRepo.GetRoadData(context.Background())
+	subways, err := s.overpassRepo.GetSubwayData(ctx)
+	if err != nil {
+		log.Printf("Warning: failed to get subway data: %v", err)
+	}
+
+	roads, err := s.overpassRepo.GetRoadData(ctx)
+	if err != nil {
+		log.Printf("Warning: failed to get road data: %v", err)
+	}
 
 	spatial := spatialAnalyzer.Analyze(current, subways, roads)
 	temporal := temporalAnalyzer.Analyze(historical, years)
@@ -107,19 +116,6 @@ func (s *PredictionService) calculateFeatures(
 	return model.FeatureSet{
 		Spatial:  spatial,
 		Temporal: temporal,
+		Elements: current,
 	}
 }
-
-func (s *PredictionService) calculateFeatures(
-    current []model.OSMElement,
-    historical []model.HistoricalData,
-    years int,
-) model.FeatureSet {
-    return model.FeatureSet{
-        Spatial:  spatial,
-        Temporal: temporal,
-        Elements: current,  // Сохраняем текущие элементы
-    }
-}
-
-

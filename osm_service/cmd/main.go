@@ -22,8 +22,8 @@ func main() {
 
 	// Создание сервиса предсказаний
 	predictionService := core.NewPredictionService(
-		overpassRepo,
-		postgresRepo,
+		*overpassRepo,
+		*postgresRepo,
 		mlClient,
 		trainingRecorder,
 		saveTrainingData,

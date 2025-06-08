@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 	"osm_service/internal/domain/model"
 	"strconv"
 	"strings"
 )
 
 type PostGISRepository struct {
-	db *sqlx.DB
+	DB *sqlx.DB
 }
 
 func NewPostgresRepository(connStr string) *PostGISRepository {
 	db := sqlx.MustConnect("postgres", connStr)
-	return &PostGISRepository{db: db}
+	return &PostGISRepository{DB: db}
 }
 
 func (r *PostGISRepository) GetByPeriod(
@@ -42,7 +43,7 @@ func (r *PostGISRepository) GetByPeriod(
 		AND ST_Intersects(bbox, ST_MakeEnvelope($3, $4, $5, $6, 4326))`
 
 	var data model.HistoricalData
-	err = r.db.GetContext(ctx, &data, query,
+	err = r.DB.GetContext(ctx, &data, query,
 		period,
 		shopType,
 		minLon, minLat, maxLon, maxLat,

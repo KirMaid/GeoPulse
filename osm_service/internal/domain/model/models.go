@@ -1,13 +1,11 @@
 package model
 
-// Добавляем поле Elements в FeatureSet
 type FeatureSet struct {
 	Spatial  SpatialFeatures
 	Temporal TemporalFeatures
 	Elements []OSMElement
 }
 
-// Добавляем поля для координат в OSMElement
 type OSMElement struct {
 	ID     int64
 	Type   string
@@ -15,14 +13,6 @@ type OSMElement struct {
 	Lon    float64 `json:"lon"`
 	Tags   map[string]string
 	Bounds Bounds
-}
-
-// Добавляем структуру для сериализации в ML-сервис
-type MLRequest struct {
-	Features       FeatureSet        `json:"features"`
-	ShopType       string            `json:"shop_type"`
-	HistoricalData []HistoricalData  `json:"historical_data"`
-	Years          int               `json:"years"`
 }
 
 type Bounds struct {
@@ -60,9 +50,9 @@ type HistoricalData struct {
 
 type TemporalFeatures struct {
 	YearsAnalyzed int
-	ObjectDensity float64
-	NewObjectRate float64
-	TrendSlope    float64
+	ObjectDensity float64 // объектов/год
+	NewObjectRate float64 // доля новых объектов
+	TrendSlope    float64 // наклон тренда
 }
 
 type SpatialFeatures struct {
@@ -72,4 +62,3 @@ type SpatialFeatures struct {
 	AvgDistToSubway  float64
 	AvgDistToPrimary float64
 }
-

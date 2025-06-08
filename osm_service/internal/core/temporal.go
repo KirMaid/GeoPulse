@@ -21,13 +21,23 @@ func (a *TemporalAnalyzer) Analyze(data []model.HistoricalData, years int) model
 	}
 
 	var totalObjects, newObjects int
-	for _, d := range data {
+	for i, d := range data {
 		totalObjects += d.TotalObjects
-		newObjects += d.NewObjects
+		if i > 0 {
+			delta := d.TotalObjects - data[i-1].TotalObjects
+			if delta > 0 {
+				newObjects += delta
+			}
+		}
 	}
 
-	features.ObjectDensity = float64(totalObjects) / float64(years)
-	features.NewObjectRate = float64(newObjects) / float64(totalObjects)
+	if years > 0 {
+		features.ObjectDensity = float64(totalObjects) / float64(years)
+	}
+
+	if totalObjects > 0 {
+		features.NewObjectRate = float64(newObjects) / float64(totalObjects)
+	}
 
 	if len(data) > 1 {
 		first := data[0].TotalObjects
