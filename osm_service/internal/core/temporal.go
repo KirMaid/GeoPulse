@@ -16,34 +16,36 @@ func (a *TemporalAnalyzer) Analyze(data []model.HistoricalData, years int) model
 		YearsAnalyzed: years,
 	}
 
-	if len(data) == 0 {
+	if len(data) < 2 {
 		return features
 	}
 
-	var totalObjects, newObjects int
-	for i, d := range data {
-		totalObjects += d.TotalObjects
-		if i > 0 {
-			delta := d.TotalObjects - data[i-1].TotalObjects
-			if delta > 0 {
-				newObjects += delta
-			}
-		}
-	}
+	// Вычисляем общее количество объектов
+	totalObjects := data[len(data)-1].TotalObjects
 
+	// Используем предварительно вычисленные значения
+	newObjects := data[len(data)-1].NewObjects
+	closedObjects := data[len(data)-1].ClosedObjects
+
+	// Рассчитываем плотность объектов
 	if years > 0 {
 		features.ObjectDensity = float64(totalObjects) / float64(years)
 	}
 
-	if totalObjects > 0 {
-		features.NewObjectRate = float64(newObjects) / float64(totalObjects)
+	// Рассчитываем темпы роста/сокращения
+	startCount := data[0].TotalObjects
+	endCount := data[len(data)-1].TotalObjects
+	netChange := endCount - startCount
+
+	// Рассчитываем показатели
+	if startCount > 0 {
+		features.NewObjectRate = float64(newObjects) / float64(startCount)
+		features.ClosureRate = float64(closedObjects) / float64(startCount)
+		features.NetGrowthRate = float64(netChange) / float64(startCount)
 	}
 
-	if len(data) > 1 {
-		first := data[0].TotalObjects
-		last := data[len(data)-1].TotalObjects
-		features.TrendSlope = float64(last-first) / float64(years)
-	}
+	// Рассчитываем наклон тренда
+	features.TrendSlope = float64(netChange) / float64(years)
 
 	return features
 }

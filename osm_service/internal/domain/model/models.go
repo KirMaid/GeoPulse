@@ -41,6 +41,14 @@ type Hotspot struct {
 	Score float64
 }
 
+type SpatialFeatures struct {
+	TotalObjects     int
+	AvgArea          float64
+	SubwayStations   int
+	AvgDistToSubway  float64
+	AvgDistToPrimary float64
+}
+
 type HistoricalData struct {
 	Period        string
 	TotalObjects  int
@@ -52,13 +60,7 @@ type TemporalFeatures struct {
 	YearsAnalyzed int
 	ObjectDensity float64 // объектов/год
 	NewObjectRate float64 // доля новых объектов
+	ClosureRate   float64 // доля закрытых объектов
+	NetGrowthRate float64 // чистая скорость роста
 	TrendSlope    float64 // наклон тренда
-}
-
-type SpatialFeatures struct {
-	TotalObjects     int
-	AvgArea          float64
-	SubwayStations   int
-	AvgDistToSubway  float64
-	AvgDistToPrimary float64
 }

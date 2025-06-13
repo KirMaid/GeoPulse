@@ -66,21 +66,66 @@ func (s *PredictionService) getHistoricalData(
 	years int,
 	shopType string,
 ) ([]model.HistoricalData, error) {
-	end := time.Now()
-	start := end.AddDate(-years, 0, 0)
+	endDate := time.Now()
+	startDate := endDate.AddDate(-years, 0, 0)
 
-	periods := s.generatePeriods(start, end)
-	var data []model.HistoricalData
+	// Форматируем даты для Overpass
+	startStr := startDate.Format("2006-01-02T15:04:05Z")
+	endStr := endDate.Format("2006-01-02T15:04:05Z")
 
-	for _, period := range periods {
-		historical, err := s.postgisRepo.GetByPeriod(ctx, bbox, period, shopType)
-		if err != nil {
-			return nil, err
-		}
-		data = append(data, historical)
+	// Получаем данные на начало периода
+	startElements, err := s.overpassRepo.GetCommercialDataByDate(ctx, bbox, shopType, startStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get start date data: %w", err)
 	}
 
-	return data, nil
+	// Получаем данные на конец периода
+	endElements, err := s.overpassRepo.GetCommercialDataByDate(ctx, bbox, shopType, endStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get end date data: %w", err)
+	}
+
+	// Создаем карты для быстрого поиска
+	startSet := make(map[int64]struct{})
+	for _, el := range startElements {
+		startSet[el.ID] = struct{}{}
+	}
+
+	endSet := make(map[int64]struct{})
+	for _, el := range endElements {
+		endSet[el.ID] = struct{}{}
+	}
+
+	// Вычисляем новые и закрытые объекты
+	newObjects := 0
+	for id := range endSet {
+		if _, exists := startSet[id]; !exists {
+			newObjects++
+		}
+	}
+
+	closedObjects := 0
+	for id := range startSet {
+		if _, exists := endSet[id]; !exists {
+			closedObjects++
+		}
+	}
+
+	// Формируем исторические данные
+	return []model.HistoricalData{
+		{
+			Period:        startDate.Format("2006"),
+			TotalObjects:  len(startElements),
+			NewObjects:    0,
+			ClosedObjects: 0,
+		},
+		{
+			Period:        endDate.Format("2006"),
+			TotalObjects:  len(endElements),
+			NewObjects:    newObjects,
+			ClosedObjects: closedObjects,
+		},
+	}, nil
 }
 
 func (s *PredictionService) generatePeriods(start, end time.Time) []string {

@@ -165,3 +165,29 @@ func getAmenityFilter(shopType string) string {
 		return ".*"
 	}
 }
+
+func (r *OverpassRepository) GetCommercialDataByDate(ctx context.Context, bbox, shopType, date string) ([]model.OSMElement, error) {
+	query := fmt.Sprintf(`
+        [out:json][date:"%s"];
+        (
+            node["shop"="%s"](%s);
+            way["shop"="%s"](%s);
+            node["amenity"~"%s"](%s);
+            way["amenity"~"%s"](%s);
+        );
+        out body;
+        >;
+        out skel qt;
+    `, date,
+		shopType, bbox,
+		shopType, bbox,
+		getAmenityFilter(shopType), bbox,
+		getAmenityFilter(shopType), bbox)
+
+	result, err := r.executeQuery(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute commercial data query for date %s: %w", date, err)
+	}
+
+	return convertToOSMElements(result), nil
+}
