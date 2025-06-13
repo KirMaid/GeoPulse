@@ -8,12 +8,17 @@ import (
 	"osm_service/internal/core"
 	"osm_service/internal/domain/repository"
 	"osm_service/internal/infrastructure/mlclient"
+	"time"
 )
 
 func main() {
-	// Инициализация репозиториев
-	postgresRepo := repository.NewPostgresRepository(os.Getenv("POSTGRES_URL"))
-	overpassRepo := repository.NewOverpassRepository(os.Getenv("OVERPASS_URL"), 5)
+	//testPostgresUrl := "postgresql://user:pass@postgres/osm?sslmode=disable"
+	testPostgresUrl := "postgresql://user:pass@localhost:5432/osm?sslmode=disable"
+	testOverpassAPI := "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+	//postgresRepo := repository.NewPostgresRepository(os.Getenv("POSTGRES_URL"))
+	postgresRepo := repository.NewPostgresRepository(testPostgresUrl)
+	overpassRepo := repository.NewOverpassRepository(testOverpassAPI, 15*time.Second)
+	//overpassRepo := repository.NewOverpassRepository(os.Getenv("OVERPASS_URL"), 5)
 	mlClient := mlclient.NewHTTPMLClient(os.Getenv("ML_SERVICE_URL"))
 
 	// Инициализация рекордера для обучения

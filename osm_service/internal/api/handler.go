@@ -57,7 +57,7 @@ func (h *Handler) Predict(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Years < 1 || req.Years > 20 {
+	if req.Years < 5 || req.Years > 20 {
 		http.Error(w, "Years must be between 1 and 20", http.StatusBadRequest)
 		return
 	}

@@ -3,10 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/serjvanilla/go-overpass"
+	"net/http"
 	"osm_service/internal/domain/model"
 	"time"
-
-	"github.com/serjvanilla/go-overpass"
 )
 
 type OverpassRepository struct {
@@ -15,7 +15,10 @@ type OverpassRepository struct {
 }
 
 func NewOverpassRepository(endpoint string, timeout time.Duration) *OverpassRepository {
-	client := overpass.NewWithSettings(endpoint, 2, nil)
+	httpClient := &http.Client{
+		Timeout: timeout,
+	}
+	client := overpass.NewWithSettings(endpoint, 2, httpClient)
 	return &OverpassRepository{
 		client:  &client,
 		timeout: timeout,
@@ -24,7 +27,7 @@ func NewOverpassRepository(endpoint string, timeout time.Duration) *OverpassRepo
 
 func (r *OverpassRepository) GetCommercialData(ctx context.Context, bbox string, shopType string) ([]model.OSMElement, error) {
 	query := fmt.Sprintf(`
-		[out:json][timeout:%d];
+		[out:json];
 		(
 			node["shop"="%s"](%s);
 			way["shop"="%s"](%s);
@@ -34,7 +37,7 @@ func (r *OverpassRepository) GetCommercialData(ctx context.Context, bbox string,
 		out body;
 		>;
 		out skel qt;
-	`, int(r.timeout.Seconds()),
+	`,
 		shopType, bbox,
 		shopType, bbox,
 		getAmenityFilter(shopType), bbox,
@@ -50,7 +53,7 @@ func (r *OverpassRepository) GetCommercialData(ctx context.Context, bbox string,
 
 func (r *OverpassRepository) GetSubwayData(ctx context.Context) ([]model.OSMElement, error) {
 	query := fmt.Sprintf(`
-		[out:json][timeout:%d];
+		[out:json];
 		(
 			node["railway"="station"]["station"="subway"];
 			way["railway"="station"]["station"="subway"];
@@ -58,7 +61,7 @@ func (r *OverpassRepository) GetSubwayData(ctx context.Context) ([]model.OSMElem
 		out body;
 		>;
 		out skel qt;
-	`, int(r.timeout.Seconds()))
+	`)
 
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
@@ -70,14 +73,14 @@ func (r *OverpassRepository) GetSubwayData(ctx context.Context) ([]model.OSMElem
 
 func (r *OverpassRepository) GetRoadData(ctx context.Context) ([]model.OSMElement, error) {
 	query := fmt.Sprintf(`
-		[out:json][timeout:%d];
+		[out:json];
 		(
 			way["highway"~"primary|secondary|trunk"];
 		);
 		out body;
 		>;
 		out skel qt;
-	`, int(r.timeout.Seconds()))
+	`)
 
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
