@@ -1,8 +1,8 @@
 version: '3.8'
 
 services:
-  go-service:
-    build: ./go_service
+  osm-service:
+    build: ./osm_service
     environment:
       POSTGRES_URL: "postgresql://user:pass@postgres/osm?sslmode=disable"
       OVERPASS_URL: "http://overpass-api:8080/api/interpreter"
@@ -36,7 +36,7 @@ services:
       - postgres
 
   postgres:
-    image: postgres:14
+    image: postgis/postgis:17-3.5
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: pass
