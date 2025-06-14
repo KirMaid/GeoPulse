@@ -26,12 +26,6 @@ type PredictionResult struct {
 	Hotspots      []Hotspot
 }
 
-//type Hotspot struct {
-//	Lat   float64
-//	Lon   float64
-//	Score float64
-//}
-
 type SpatialFeatures struct {
 	TotalObjects     int
 	AvgArea          float64
@@ -56,8 +50,3 @@ type TemporalFeatures struct {
 	NetGrowthRate float64 // чистая скорость роста
 	TrendSlope    float64 // наклон тренда
 }
-
-// MLClient интерфейс для работы с ML сервисом
-//type MLClient interface {
-//	Predict(ctx context.Context, bbox string, shopType string, years int) (*PredictionResult, error)
-//}

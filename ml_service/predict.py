@@ -27,26 +27,38 @@ class PredictionService:
         
     def find_best_model(self, shop_type: str, bbox: str) -> str:
         """Находит наиболее подходящую модель для заданных параметров"""
-        # Парсим bbox
-        min_lat, min_lon, max_lat, max_lon = map(float, bbox.split(','))
-        bbox_suffix = f"{min_lat:.2f}_{min_lon:.2f}_{max_lat:.2f}_{max_lon:.2f}"
-        
-        # Ищем все модели для данного типа магазина
-        model_pattern = f"model_{shop_type}_*_{bbox_suffix}.joblib"
-        matching_models = glob.glob(os.path.join(self.models_dir, model_pattern))
-        
-        if not matching_models:
-            # Если точного совпадения нет, ищем ближайшую модель по координатам
+        try:
+            # Парсим bbox запроса
+            req_min_lat, req_min_lon, req_max_lat, req_max_lon = map(float, bbox.split(','))
+            
+            # Ищем все модели для данного типа магазина
             all_models = glob.glob(os.path.join(self.models_dir, f"model_{shop_type}_*.joblib"))
             if not all_models:
                 raise ValueError(f"No models found for shop type: {shop_type}")
             
-            # TODO: Реализовать поиск ближайшей модели по координатам
-            # Пока берем самую последнюю модель
+            # Проверяем каждую модель
+            for model_path in all_models:
+                model_name = os.path.basename(model_path).replace('.joblib', '')
+                # Извлекаем координаты из имени модели
+                # Формат: model_shop_type_YYYYMMDD_to_YYYYMMDD_lat_lon_lat_lon
+                parts = model_name.split('_')
+                if len(parts) >= 8:
+                    model_bbox = f"{parts[-4]}_{parts[-3]}_{parts[-2]}_{parts[-1]}"
+                    model_min_lat, model_min_lon, model_max_lat, model_max_lon = map(float, model_bbox.split('_'))
+                    
+                    # Проверяем, находится ли запрошенная область внутри области модели
+                    if (model_min_lat <= req_min_lat and model_max_lat >= req_max_lat and
+                        model_min_lon <= req_min_lon and model_max_lon >= req_max_lon):
+                        logger.info(f"Found matching model: {model_name}")
+                        return model_name
+            
+            # Если точного совпадения нет, берем самую последнюю модель
+            logger.warning("No exact area match found, using the latest model")
             return os.path.basename(all_models[-1]).replace('.joblib', '')
-        
-        # Берем самую последнюю модель из подходящих
-        return os.path.basename(matching_models[-1]).replace('.joblib', '')
+            
+        except Exception as e:
+            logger.error(f"Error finding best model: {str(e)}")
+            raise
     
     def predict(self, features: Dict[str, float], shop_type: str, bbox: str) -> Dict[str, float]:
         """Получение предсказания"""
