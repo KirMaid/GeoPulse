@@ -3,10 +3,12 @@ package repository
 import (
 	"context"
 	"fmt"
-	"github.com/serjvanilla/go-overpass"
+	"log"
 	"net/http"
 	"osm_service/internal/domain/model"
 	"time"
+
+	"github.com/serjvanilla/go-overpass"
 )
 
 type OverpassRepository struct {
@@ -43,76 +45,100 @@ func (r *OverpassRepository) GetCommercialData(ctx context.Context, bbox string,
 		getAmenityFilter(shopType), bbox,
 		getAmenityFilter(shopType), bbox)
 
+	log.Printf("Executing commercial data query for bbox=%s, shop_type=%s:\n%s", bbox, shopType, query)
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
+		log.Printf("Failed to execute commercial data query: %v", err)
 		return nil, fmt.Errorf("failed to execute commercial data query: %w", err)
 	}
 
-	return convertToOSMElements(result), nil
+	elements := convertToOSMElements(result)
+	log.Printf("Retrieved %d commercial elements", len(elements))
+	return elements, nil
 }
 
-func (r *OverpassRepository) GetSubwayData(ctx context.Context) ([]model.OSMElement, error) {
+func (r *OverpassRepository) GetSubwayData(ctx context.Context, bbox string, date string) ([]model.OSMElement, error) {
 	query := fmt.Sprintf(`
-		[out:json];
+		[out:json][date:"%s"];
 		(
-			node["railway"="station"]["station"="subway"];
-			way["railway"="station"]["station"="subway"];
+			node["railway"="station"]["station"="subway"](%s);
+			way["railway"="station"]["station"="subway"](%s);
 		);
 		out body;
 		>;
 		out skel qt;
-	`)
+	`, date, bbox, bbox)
 
+	log.Printf("Executing subway data query for bbox=%s, date=%s:\n%s", bbox, date, query)
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
+		log.Printf("Failed to execute subway data query: %v", err)
 		return nil, fmt.Errorf("failed to execute subway data query: %w", err)
 	}
 
-	return convertToOSMElements(result), nil
+	elements := convertToOSMElements(result)
+	log.Printf("Retrieved %d subway elements", len(elements))
+	return elements, nil
 }
 
-func (r *OverpassRepository) GetRoadData(ctx context.Context) ([]model.OSMElement, error) {
+func (r *OverpassRepository) GetRoadData(ctx context.Context, bbox string, date string) ([]model.OSMElement, error) {
 	query := fmt.Sprintf(`
-		[out:json];
+		[out:json][date:"%s"];
 		(
-			way["highway"~"primary|secondary|trunk"];
+			way["highway"~"primary|secondary|trunk"](%s);
 		);
 		out body;
 		>;
 		out skel qt;
-	`)
+	`, date, bbox)
 
+	log.Printf("Executing road data query for bbox=%s, date=%s:\n%s", bbox, date, query)
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
+		log.Printf("Failed to execute road data query: %v", err)
 		return nil, fmt.Errorf("failed to execute road data query: %w", err)
 	}
 
-	return convertToOSMElements(result), nil
+	elements := convertToOSMElements(result)
+	log.Printf("Retrieved %d road elements", len(elements))
+	return elements, nil
 }
 
 func (r *OverpassRepository) executeQuery(ctx context.Context, query string) (*overpass.Result, error) {
+	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
+	log.Printf("Starting Overpass API query execution...")
 	result, err := r.client.Query(query)
 	if err != nil {
+		log.Printf("Overpass API query failed after %v: %v", time.Since(startTime), err)
 		return nil, fmt.Errorf("overpass query failed: %w", err)
 	}
 
+	log.Printf("Overpass API query completed successfully in %v", time.Since(startTime))
 	return &result, nil
 }
 
 func convertToOSMElements(result *overpass.Result) []model.OSMElement {
 	var elements []model.OSMElement
 
+	// Convert nodes
 	for _, node := range result.Nodes {
+		// Для узлов создаем небольшую область вокруг точки (например, 50 метров)
+		const nodeRadius = 0.00045 // примерно 50 метров в градусах
 		elements = append(elements, model.OSMElement{
-			ID:     node.ID,
-			Type:   string(overpass.ElementTypeNode),
-			Lat:    node.Lat,
-			Lon:    node.Lon,
-			Tags:   node.Tags,
-			Bounds: model.Bounds{}, // Nodes don't have bounds in your model
+			ID:   node.ID,
+			Type: string(overpass.ElementTypeNode),
+			Lat:  node.Lat,
+			Lon:  node.Lon,
+			Tags: node.Tags,
+			Bounds: model.Bounds{
+				MinLat: node.Lat - nodeRadius,
+				MinLon: node.Lon - nodeRadius,
+				MaxLat: node.Lat + nodeRadius,
+				MaxLon: node.Lon + nodeRadius,
+			},
 		})
 	}
 
@@ -184,10 +210,14 @@ func (r *OverpassRepository) GetCommercialDataByDate(ctx context.Context, bbox, 
 		getAmenityFilter(shopType), bbox,
 		getAmenityFilter(shopType), bbox)
 
+	log.Printf("Executing commercial data query for bbox=%s, shop_type=%s, date=%s:\n%s", bbox, shopType, date, query)
 	result, err := r.executeQuery(ctx, query)
 	if err != nil {
+		log.Printf("Failed to execute commercial data query for date %s: %v", date, err)
 		return nil, fmt.Errorf("failed to execute commercial data query for date %s: %w", date, err)
 	}
 
-	return convertToOSMElements(result), nil
+	elements := convertToOSMElements(result)
+	log.Printf("Retrieved %d commercial elements for date %s", len(elements), date)
+	return elements, nil
 }

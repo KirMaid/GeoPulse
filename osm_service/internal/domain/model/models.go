@@ -6,15 +6,6 @@ type FeatureSet struct {
 	Elements []OSMElement
 }
 
-type OSMElement struct {
-	ID     int64
-	Type   string
-	Lat    float64 `json:"lat"`
-	Lon    float64 `json:"lon"`
-	Tags   map[string]string
-	Bounds Bounds
-}
-
 type Bounds struct {
 	MinLat float64
 	MinLon float64
@@ -35,11 +26,11 @@ type PredictionResult struct {
 	Hotspots      []Hotspot
 }
 
-type Hotspot struct {
-	Lat   float64
-	Lon   float64
-	Score float64
-}
+//type Hotspot struct {
+//	Lat   float64
+//	Lon   float64
+//	Score float64
+//}
 
 type SpatialFeatures struct {
 	TotalObjects     int
@@ -51,6 +42,7 @@ type SpatialFeatures struct {
 
 type HistoricalData struct {
 	Period        string
+	BBox          string
 	TotalObjects  int
 	NewObjects    int
 	ClosedObjects int
@@ -64,3 +56,8 @@ type TemporalFeatures struct {
 	NetGrowthRate float64 // чистая скорость роста
 	TrendSlope    float64 // наклон тренда
 }
+
+// MLClient интерфейс для работы с ML сервисом
+//type MLClient interface {
+//	Predict(ctx context.Context, bbox string, shopType string, years int) (*PredictionResult, error)
+//}

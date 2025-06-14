@@ -3,6 +3,8 @@ package core
 import (
 	"osm_service/internal/domain/model"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 type TemporalAnalyzer struct{}
@@ -28,8 +30,30 @@ func (a *TemporalAnalyzer) Analyze(data []model.HistoricalData, years int) model
 	closedObjects := data[len(data)-1].ClosedObjects
 
 	// Рассчитываем плотность объектов
-	if years > 0 {
-		features.ObjectDensity = float64(totalObjects) / float64(years)
+	if len(data) > 0 {
+		// Получаем границы кластера из первого элемента
+		bbox := data[0].BBox // Используем BBox вместо Period
+		parts := strings.Split(bbox, ",")
+		if len(parts) == 4 {
+			minLat, _ := strconv.ParseFloat(parts[0], 64)
+			minLon, _ := strconv.ParseFloat(parts[1], 64)
+			maxLat, _ := strconv.ParseFloat(parts[2], 64)
+			maxLon, _ := strconv.ParseFloat(parts[3], 64)
+
+			// Рассчитываем площадь кластера
+			bounds := model.Bounds{
+				MinLat: minLat,
+				MinLon: minLon,
+				MaxLat: maxLat,
+				MaxLon: maxLon,
+			}
+			clusterArea := calculateArea(bounds)
+
+			// Рассчитываем плотность как отношение количества объектов к площади кластера
+			if clusterArea > 0 {
+				features.ObjectDensity = float64(totalObjects) / clusterArea
+			}
+		}
 	}
 
 	// Рассчитываем темпы роста/сокращения

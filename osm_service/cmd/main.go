@@ -12,33 +12,85 @@ import (
 )
 
 func main() {
-	//testPostgresUrl := "postgresql://user:pass@postgres/osm?sslmode=disable"
-	testPostgresUrl := "postgresql://user:pass@localhost:5432/osm?sslmode=disable"
-	testOverpassAPI := "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
-	//postgresRepo := repository.NewPostgresRepository(os.Getenv("POSTGRES_URL"))
-	postgresRepo := repository.NewPostgresRepository(testPostgresUrl)
-	overpassRepo := repository.NewOverpassRepository(testOverpassAPI, 15*time.Second)
-	//overpassRepo := repository.NewOverpassRepository(os.Getenv("OVERPASS_URL"), 5)
-	mlClient := mlclient.NewHTTPMLClient(os.Getenv("ML_SERVICE_URL"))
+	// Конфигурация
+	postgresURL := os.Getenv("POSTGRES_URL")
+	if postgresURL == "" {
+		postgresURL = "postgresql://user:pass@localhost:5432/osm?sslmode=disable"
+	}
 
-	// Инициализация рекордера для обучения
-	trainingRecorder := repository.NewPostgresTrainingRecorder(postgresRepo.DB)
-	saveTrainingData := os.Getenv("SAVE_TRAINING_DATA") == "true"
+	overpassAPI := os.Getenv("OVERPASS_URL")
+	if overpassAPI == "" {
+		overpassAPI = "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+	}
+
+	mlServiceURL := os.Getenv("ML_SERVICE_URL")
+	if mlServiceURL == "" {
+		mlServiceURL = "http://localhost:5000"
+	}
+
+	// Инициализация репозиториев
+	postgresRepo := repository.NewPostgresRepository(postgresURL)
+	overpassRepo := repository.NewOverpassRepository(overpassAPI, 120*time.Second)
+	mlClient := mlclient.NewHTTPMLClient(mlServiceURL)
 
 	// Создание сервиса предсказаний
 	predictionService := core.NewPredictionService(
 		*overpassRepo,
 		*postgresRepo,
 		mlClient,
-		trainingRecorder,
-		saveTrainingData,
+		nil, // Отключаем сохранение данных для обучения
+		false,
 	)
 
 	// Настройка HTTP-обработчиков
 	handler := api.NewHandler(predictionService)
-	http.HandleFunc("/api/predict", handler.Predict)
+
+	// Добавляем middleware для логирования
+	http.HandleFunc("/api/predict", logMiddleware(handler.Predict))
+	http.HandleFunc("/api/training", logMiddleware(handler.Training))
+	http.HandleFunc("/api/models", logMiddleware(handler.GetModels))
 
 	// Запуск сервера
-	log.Println("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server starting on port %s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
+}
+
+// logMiddleware добавляет логирование запросов
+func logMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		log.Printf("Started %s %s", r.Method, r.URL.Path)
+
+		// Создаем ResponseWriter, который перехватывает статус код
+		rw := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK,
+		}
+
+		next(rw, r)
+
+		log.Printf("Completed %s %s %d in %v",
+			r.Method,
+			r.URL.Path,
+			rw.statusCode,
+			time.Since(start))
+	}
+}
+
+// responseWriter перехватывает статус код ответа
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }

@@ -1,8 +1,7 @@
-flask==2.1.0
-scikit-learn==1.0.2
-pandas==1.4.2
-numpy==1.22.3
-joblib==1.1.0
-scipy==1.8.0
-psycopg2-binary==2.9.3
-sqlalchemy==1.4.36
+flask==2.3.3
+scikit-learn==1.3.2
+numpy==1.26.4
+pandas==2.2.1
+joblib==1.3.2
+gunicorn==20.1.0
+python-dotenv==0.19.2
